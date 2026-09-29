@@ -39,7 +39,14 @@ export default function AIPanel({
   onBusy,
   onSettings,
   onClose,
+  candidateMeta,
+  adoptOverride,
 }: {
+  candidateMeta?: () => Partial<Draft>;
+  adoptOverride?: (
+    draft: Draft,
+    mode: "insert" | "replace" | "chapters",
+  ) => Promise<boolean>;
   book: Book;
   target: Target;
   selection: { start: number; end: number } | null;
@@ -218,6 +225,7 @@ export default function AIPanel({
     try {
       await flush();
       const d: Draft = {
+        ...candidateMeta?.(),
         id: uid(),
         bookId: book.id,
         target: effectiveTarget,
@@ -269,6 +277,14 @@ export default function AIPanel({
   const adopt = async (mode: "insert" | "replace" | "chapters") => {
     if (!draft || busy) return;
     try {
+      if (adoptOverride) {
+        if (!(await adoptOverride(draft, mode))) return;
+        await window.moye.deleteDraft(draft.id);
+        setCandidate(null);
+        setError("");
+        notify("已采纳，共享版本已保存。");
+        return;
+      }
       let current = bookRef.current;
       const original = getTarget(current, draft.target);
       let next = original;

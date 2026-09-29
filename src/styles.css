@@ -1738,3 +1738,175 @@ svg {
 [data-theme="dark"] .ai-toggle.active {
   color: #baccaa;
 }
+/* Shared writing retains the same paper, typography and theme tokens. */
+.login-card {
+  max-width: 460px;
+  margin: 48px auto;
+  padding: 36px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  display: grid;
+  gap: 20px;
+}
+.login-card h2 {
+  margin: 0;
+}
+.collab-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+  margin-top: 30px;
+}
+.collab-book {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  min-height: 180px;
+  padding: 25px;
+  background: var(--paper);
+  border-radius: 12px;
+}
+.collab-book h2 {
+  font-family: serif;
+  margin: 18px 0;
+}
+.presence-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.peer {
+  display: inline-flex;
+  padding: 5px 9px;
+  border: 1px solid;
+  border-radius: 20px;
+  font-size: 11px;
+}
+.collab-target-bar {
+  display: flex;
+  gap: 12px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.collab-target-bar .shared-editor {
+  flex: 1;
+}
+.shared-editor {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--input);
+  min-height: 100px;
+}
+.shared-editor .cm-editor {
+  outline: none;
+  min-height: inherit;
+}
+.shared-editor .cm-scroller {
+  font-family: inherit;
+}
+.shared-editor .cm-content {
+  padding: 12px 14px;
+  caret-color: var(--ink);
+}
+.shared-editor .cm-cursor {
+  border-left-color: var(--ink);
+}
+.shared-editor .cm-selectionBackground {
+  background: #91b8a060 !important;
+}
+.shared-editor .cm-ySelectionInfo {
+  font-family: sans-serif;
+}
+.shared-editor.one-line {
+  min-height: 38px;
+}
+.shared-editor.one-line .cm-content {
+  padding: 5px 10px;
+}
+.shared-manuscript {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 35px 50px 150px;
+}
+.shared-manuscript .shared-editor {
+  border: 0;
+  background: transparent;
+  min-height: 60vh;
+}
+.collab-focus .sidebar {
+  display: none;
+}
+.publish-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.pill {
+  border-radius: 20px;
+  background: var(--green-light);
+  color: var(--green);
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.collab-writing .workspace {
+  min-width: 0;
+}
+.collaboration button {
+  white-space: nowrap;
+}
+.collab-target-bar > select {
+  flex: 1;
+  width: 0;
+  min-width: 160px;
+}
+.collab-target-bar > button,
+.collaboration .row > button {
+  flex-shrink: 0;
+}
+.presence-bar {
+  padding: 8px 26px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  min-height: 42px;
+}
+.shared-editor .cm-editor,
+.shared-editor .cm-scroller {
+  font-size: inherit;
+  line-height: inherit;
+}
+.collaboration .form-document > .row {
+  flex-wrap: wrap;
+}
+.collaboration .row > select {
+  min-width: 120px;
+  width: auto;
+  flex: 1;
+}
+/* Bound each CodeMirror scroll viewport so very long chapters stay virtualized. */
+.shared-editor:not(.one-line) .cm-editor {
+  height: 42vh;
+  min-height: 180px;
+}
+.shared-editor .cm-scroller {
+  overflow: auto;
+}
+.shared-manuscript .shared-editor .cm-editor {
+  height: 58vh;
+  min-height: 320px;
+}
+.peer {
+  gap: 6px;
+}
+.peer small {
+  color: var(--muted);
+  font-size: 10px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

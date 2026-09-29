@@ -1,0 +1,8 @@
+[Unit]
+Description=Moye daily backup timer
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+RandomizedDelaySec=300
+[Install]
+WantedBy=timers.target

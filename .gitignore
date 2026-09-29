@@ -6,3 +6,8 @@ release/
 test-results/
 *.log
 .DS_Store
+.runtime/
+.env
+.env.*
+!deploy/.env.example
+dist-server/

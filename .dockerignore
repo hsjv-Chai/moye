@@ -1,0 +1,7 @@
+*
+!dist-server/
+!dist-server/**
+!deploy/
+!deploy/Dockerfile
+!deploy/package.json
+!deploy/package-lock.json

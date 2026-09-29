@@ -117,6 +117,9 @@ export const draftSchema = z.object({
   target: targetSchema,
   baseline: text,
   sourceFingerprint: z.string().optional(),
+  collaborationEpoch: z.number().int().optional(),
+  anchor: z.string().optional(),
+  head: z.string().optional(),
   text,
   action: z.string().max(100),
   selection: z

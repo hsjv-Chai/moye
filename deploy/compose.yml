@@ -1,0 +1,65 @@
+name: moye
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moye
+      POSTGRES_DB: moye
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?required}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U moye -d moye"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: &logging
+      driver: json-file
+      options: { max-size: 10m, max-file: "3" }
+  app:
+    image: moye-app:${APP_VERSION:-0.2.0}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://moye:${DB_PASSWORD}@db:5432/moye
+      PORT: 3000
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./acme:/var/www/acme:ro
+      - ./letsencrypt:/etc/letsencrypt:ro
+    depends_on: [app]
+    healthcheck:
+      test: [CMD-SHELL, "nginx -t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+  certbot:
+    image: certbot/certbot:v5.4.0
+    profiles: [maintenance]
+    volumes:
+      - ./acme:/var/www/acme
+      - ./letsencrypt:/etc/letsencrypt
+volumes:
+  db:

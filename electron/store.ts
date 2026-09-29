@@ -50,7 +50,7 @@ export class Store {
     const version = Number(
       this.db.exec("PRAGMA user_version")[0]?.values[0][0] || 0,
     );
-    if (version > 1) throw new Error("资料库来自更新版本，请升级应用后打开。");
+    if (version > 3) throw new Error("资料库来自更新版本，请升级应用后打开。");
     if (version < 1) {
       if (fs.existsSync(filename))
         fs.copyFileSync(filename, `${filename}.before-v1-${Date.now()}.bak`);
@@ -59,6 +59,89 @@ export class Store {
       );
       this.persist();
     }
+    if (version < 2) {
+      if (fs.existsSync(filename))
+        fs.copyFileSync(filename, `${filename}.before-v2-${Date.now()}.bak`);
+      this.db.run(
+        "CREATE TABLE IF NOT EXISTS collab_kv(key TEXT PRIMARY KEY, data TEXT NOT NULL); PRAGMA user_version=2;",
+      );
+      this.persist();
+    }
+    if (version < 3) {
+      if (fs.existsSync(filename))
+        fs.copyFileSync(filename, `${filename}.before-v3-${Date.now()}.bak`);
+      this.db.run(
+        "CREATE TABLE IF NOT EXISTS collab_cache(key TEXT PRIMARY KEY,data TEXT NOT NULL); CREATE TABLE IF NOT EXISTS collab_outbox(cache_key TEXT NOT NULL,op_id TEXT NOT NULL,position INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(cache_key,op_id));",
+      );
+      for (const row of this.rows(
+        "SELECT key,data FROM collab_kv WHERE key LIKE 'room:%'",
+      )) {
+        this.writeCache(String(row.key), JSON.parse(String(row.data)));
+        this.db.run("DELETE FROM collab_kv WHERE key=?", [String(row.key)]);
+      }
+      this.db.run("PRAGMA user_version=3");
+      this.persist();
+    }
+  }
+  private writeCache(key: string, value: any) {
+    this.db.run("INSERT OR REPLACE INTO collab_cache VALUES (?,?)", [
+      key,
+      JSON.stringify(value.room),
+    ]);
+    this.db.run("DELETE FROM collab_outbox WHERE cache_key=?", [key]);
+    for (const [position, op] of value.pending.entries())
+      this.db.run("INSERT INTO collab_outbox VALUES (?,?,?,?)", [
+        key,
+        op.id,
+        position,
+        JSON.stringify(op),
+      ]);
+  }
+  kv<T>(key: string): T | null {
+    if (key.startsWith("room:")) {
+      const row = this.rows("SELECT data FROM collab_cache WHERE key=?", [
+        key,
+      ])[0];
+      if (!row) return null;
+      return {
+        room: JSON.parse(String(row.data)),
+        pending: this.rows(
+          "SELECT data FROM collab_outbox WHERE cache_key=? ORDER BY position",
+          [key],
+        ).map((r) => JSON.parse(String(r.data))),
+      } as T;
+    }
+
+    const row = this.rows("SELECT data FROM collab_kv WHERE key=?", [key])[0];
+    return row ? (JSON.parse(String(row.data)) as T) : null;
+  }
+  putKV(key: string, value: unknown) {
+    if (key.startsWith("room:")) {
+      this.transaction(() => this.writeCache(key, value));
+      return;
+    }
+    this.transaction(() =>
+      this.db.run("INSERT OR REPLACE INTO collab_kv VALUES (?,?)", [
+        key,
+        JSON.stringify(value),
+      ]),
+    );
+  }
+  deleteKV(key: string) {
+    this.transaction(() =>
+      this.db.run("DELETE FROM collab_kv WHERE key=?", [key]),
+    );
+  }
+  listKV<T>(prefix: string): T[] {
+    return this.rows("SELECT key,data FROM collab_kv")
+      .filter((r) => String(r.key).startsWith(prefix))
+      .map((r) => JSON.parse(String(r.data)) as T);
+  }
+  protect(value: string) {
+    return this.vault.available() ? this.vault.encrypt(value) : null;
+  }
+  unprotect(value: string) {
+    return this.vault.decrypt(value);
   }
   static async open(filename: string, wasmPath: string, vault: Vault) {
     fs.mkdirSync(path.dirname(filename), { recursive: true });

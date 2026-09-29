@@ -3,6 +3,39 @@ import type { API } from "../shared/api";
 const call = (name: string, ...args: unknown[]) =>
   ipcRenderer.invoke(`moye:${name}`, ...args);
 const api: API = {
+  collab: {
+    status: () => call("collab:status"),
+    login: (server, username, password) =>
+      call("collab:login", server, username, password),
+    logout: () => call("collab:logout"),
+    changePassword: (oldPassword, newPassword) =>
+      call("collab:password", oldPassword, newPassword),
+    books: () => call("collab:books"),
+    publish: (book) => call("collab:publish", book),
+    open: (id) => call("collab:open", id),
+    leave: () => call("collab:leave"),
+    update: (id, epoch, update) => call("collab:update", id, epoch, update),
+    presence: (field, awareness) => call("collab:presence", field, awareness),
+    flush: () => call("collab:flush"),
+    structure: (id, epoch, revision, action) =>
+      call("collab:structure", id, epoch, revision, action),
+    atomic: (id, epoch, edit) => call("collab:atomic", id, epoch, edit),
+    deleteBook: (id) => call("collab:delete", id),
+    users: () => call("collab:users"),
+    createUser: (input) => call("collab:createUser", input),
+    updateUser: (id, patch) => call("collab:updateUser", id, patch),
+    members: (id) => call("collab:members", id),
+    setMember: (id, userId, role) => call("collab:setMember", id, userId, role),
+    versions: (id) => call("collab:versions", id),
+    snapshot: (id) => call("collab:snapshot", id),
+    restore: (id, versionId) => call("collab:restore", id, versionId),
+    onEvent: (fn) => {
+      const listener = (_: unknown, event: Parameters<typeof fn>[0]) =>
+        fn(event);
+      ipcRenderer.on("moye:collab", listener);
+      return () => ipcRenderer.removeListener("moye:collab", listener);
+    },
+  },
   listBooks: () => call("listBooks"),
   saveBook: (b) => call("saveBook", b),
   deleteBook: (id) => call("deleteBook", id),

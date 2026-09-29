@@ -1,0 +1,7 @@
+[Unit]
+Description=Moye short-lived IP certificate renewal
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/moye/deploy/renew.sh

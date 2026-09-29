@@ -1,3 +1,4 @@
+import type { CollabAPI } from "./collab";
 import type {
   Book,
   Connection,
@@ -9,6 +10,7 @@ import type {
   ImportChapter,
 } from "./model";
 export interface API {
+  collab: CollabAPI;
   listBooks(): Promise<Book[]>;
   saveBook(b: Book): Promise<Book>;
   deleteBook(id: string): Promise<void>;

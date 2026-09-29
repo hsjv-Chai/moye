@@ -57,6 +57,7 @@ import {
 import "./api";
 import { Modal, Empty, date } from "./components";
 import Settings from "./Settings";
+import Collaboration from "./Collaboration";
 import AIPanel from "./AIPanel";
 type Page = "body" | "settings" | "outline" | "overview";
 type ConfirmState = { message: string; resolve: (b: boolean) => void };
@@ -82,6 +83,7 @@ export default function App() {
     [settingId, setSettingId] = useState(""),
     [outlineId, setOutlineId] = useState("synopsis"),
     [tab, setTab] = useState<"body" | "summary">("body");
+  const [collabOpen, setCollabOpen] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]),
     [prefs, setPrefs] = useState<Preferences>(defaultPreferences),
     [settingsOpen, setSettingsOpen] = useState(false),
@@ -208,7 +210,7 @@ export default function App() {
     document.documentElement.dataset.theme = prefs.theme;
   }, [prefs.theme]);
   useEffect(() => {
-    if (!window.moye) return;
+    if (!window.moye || collabOpen) return;
     return window.moye.onClosing(() => {
       void flush()
         .then(() => window.moye.closeReady())
@@ -216,7 +218,7 @@ export default function App() {
           setError("保存失败，窗口已保持打开。请重试保存后再关闭。"),
         );
     });
-  }, [flush]);
+  }, [flush, collabOpen]);
   const savePrefs = async (p: Preferences) => {
     try {
       const saved = await window.moye.savePreferences(p);
@@ -483,6 +485,19 @@ export default function App() {
       </div>
     </div>
   );
+  if (collabOpen)
+    return (
+      <Collaboration
+        onBack={() => {
+          setCollabOpen(false);
+          void window.moye.listBooks().then(setBooks);
+        }}
+        prefs={prefs}
+        onPrefs={savePrefs}
+        connections={connections}
+        onConnections={setConnections}
+      />
+    );
   return (
     <div className={`app ${focus ? "focus-mode" : ""}`}>
       {!book ? (
@@ -512,6 +527,7 @@ export default function App() {
                   <Sun size={18} />
                 )}
               </button>
+              <button onClick={() => setCollabOpen(true)}>多人协作</button>
               <button onClick={() => setSettingsOpen(true)}>
                 <Settings2 size={16} />
                 AI 连接与偏好
