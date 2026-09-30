@@ -193,6 +193,39 @@ describe("durable offline cache", () => {
     expect(store.listBooks()).toHaveLength(0);
     replica.destroy();
   });
+  it("updates own profile in status and durable session without losing the token", async () => {
+    setupRoom();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true })),
+    );
+    await client.updateUser(user.id, { displayName: "新名称" });
+    expect(client.status().user?.displayName).toBe("新名称");
+    expect(store.kv<any>("session").user.displayName).toBe("新名称");
+    expect(vault.decrypt(store.kv<any>("session").secret)).toBe("test-token");
+  });
+  it("preserves pending text in a personal copy when access is revoked", async () => {
+    const { b, d } = setupRoom();
+    const replica = clone(d),
+      vector = Y.encodeStateVector(replica);
+    replica
+      .getMap<Y.Text>("texts")
+      .get(`chapter:${b.chapters[0].id}:body`)!
+      .insert(0, "被撤权前的离线文字");
+    await client.update(
+      b.id,
+      1,
+      Buffer.from(Y.encodeStateAsUpdate(replica, vector)).toString("base64"),
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: "没有这部作品的访问权限" }), {
+        status: 403,
+      }),
+    );
+    await expect(client.open(b.id)).rejects.toThrow();
+    expect(store.listBooks()).toHaveLength(1);
+    expect(store.listBooks()[0].chapters[0].body).toBe("被撤权前的离线文字");
+    replica.destroy();
+  });
   it("isolates cached works when the collaboration account changes", () => {
     const { b } = setupRoom();
     expect(client.cachedBook(b.id)?.id).toBe(b.id);

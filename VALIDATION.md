@@ -61,3 +61,13 @@ node .runtime/collab-regression.mjs
 ## 最后复核
 
 最后复核期间 SSH 与 HTTPS 曾暂时不可达，用户反馈发生余额预警并已处理。恢复后，外网 HTTPS 健康检查返回 `0.2.0`，最终 macOS arm64 安装包通过完整协作联调，验收数据清理已完成。正式管理员未用于测试，首次登录仍须修改临时密码。
+
+## 2026-09-30 用户管理更新验证
+
+- `npm test`：37 项全部通过；新增账号接口鉴权、创建与重复用户名、显示名称校验、会话保留/撤销、两种权限查询一致性、停用账号授权限制、本机名称缓存及撤权后的离线文本恢复测试。
+- `npm run build` 与 `npm run build:server` 均通过；Vite 保留原有大包及静态/动态混合导入提示。修改文件格式检查和 `git diff --check` 通过。
+- `node scripts/user-management-smoke.mjs`：真实 Electron、临时 SQLite 和本机模拟 API 验证搜索、类型筛选、创建、重复提交拦截、改名、保存失败重试、保存成功但刷新失败、独立密码重置、停用/启用以及两个权限入口。截图为 `test-results/user-management.png` 与 `test-results/member-management.png`。
+- 在指定 ECS 上使用独立 PostgreSQL 数据库 `moye_users_verify_20260930_v1` 执行 `scripts/user-management-integration.ts` 的构建产物：真实账号生命周期、首次改密、名称更新保留会话、WebSocket 1012 重连、权限撤销/停用后的 1008 断连、重置密码撤销登录、权限查询一致性及非法请求均通过。测试库已清理，没有使用生产账号运行写入测试。
+- 通过 sudo 更新 `/opt/moye/dist-server` 并运行现有 `deploy/update.sh`。服务端 SHA-256：`40ed95e51059db6aea3b76f99b9620e8f83922ebbdeaa105243491157e528b9a`，与本地构建一致；应用、数据库、Nginx 均健康，公网 `/health` 返回成功，新接口未登录返回 401。
+- 升级前数据库备份：`/opt/moye/migration-backups/pre-update-20260930T091108Z.dump`；代码备份：`/opt/moye/migration-backups/server-before-users-20260930.tar`；旧镜像保留为 `moye-app:previous`。部署前后生产表数量保持为账号 3、作品 1、成员关系 1、版本 4。
+- 本次已构建并验证桌面源码，但未重新生成 DMG/EXE 安装包；服务器部署不会改变已安装客户端的界面。新界面需使用本次桌面构建，现有客户端仍可使用旧接口。

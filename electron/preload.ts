@@ -24,6 +24,7 @@ const api: API = {
     users: () => call("collab:users"),
     createUser: (input) => call("collab:createUser", input),
     updateUser: (id, patch) => call("collab:updateUser", id, patch),
+    userBooks: (id) => call("collab:userBooks", id),
     members: (id) => call("collab:members", id),
     setMember: (id, userId, role) => call("collab:setMember", id, userId, role),
     versions: (id) => call("collab:versions", id),

@@ -4,6 +4,7 @@ import {
   structureSchema,
   atomicSchema,
   userInputSchema,
+  userPatchSchema,
 } from "../shared/collab";
 import { app, BrowserWindow, dialog, ipcMain, safeStorage } from "electron";
 import fs from "node:fs";
@@ -119,16 +120,10 @@ function register() {
     collaboration.request("/api/users", "POST", userInputSchema.parse(input)),
   );
   handle("collab:updateUser", (id, patch) =>
-    collaboration.request(
-      `/api/users/${cid(id)}`,
-      "PATCH",
-      z
-        .object({
-          active: z.boolean().optional(),
-          password: z.string().min(12).max(200).optional(),
-        })
-        .parse(patch),
-    ),
+    collaboration.updateUser(cid(id), userPatchSchema.parse(patch)),
+  );
+  handle("collab:userBooks", (id) =>
+    collaboration.request(`/api/users/${cid(id)}/books`),
   );
   handle("collab:members", (id) =>
     collaboration.request(`/api/books/${cid(id)}/members`),

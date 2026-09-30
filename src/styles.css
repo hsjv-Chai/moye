@@ -1910,3 +1910,49 @@ svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.management {
+  display: grid;
+  gap: 16px;
+}
+.management-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+}
+.management-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.management label {
+  display: grid;
+  gap: 6px;
+}
+.management small {
+  color: var(--muted);
+}
+.management-permission {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.management-permission label {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.management-permission select {
+  min-width: 110px;
+}
+.management-password {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+@media (max-width: 640px) {
+  .management-filters {
+    grid-template-columns: 1fr;
+  }
+}

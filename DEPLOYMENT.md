@@ -99,3 +99,9 @@ sudo systemctl enable --now moye-backup.timer moye-renew.timer
 管理员通过受保护的本地 JSON 文件（`username`、`displayName`、`password`、`admin:true`）从标准输入交给 `docker compose exec -T app node dist-server/admin.mjs` 创建。切勿把密码写进命令参数或日志。恢复已有数据库则无需再创建管理员。
 
 当前 ECS 无法直连 Docker Hub 时使用 DaoCloud 镜像代理获取了基础镜像，再标记为标准镜像名；应用依赖按锁文件从 npm 镜像安装。重建时按网络环境选择可访问的可信镜像源。
+
+## 2026-09-30 账号管理更新
+
+本次增加账号改名与按用户查询作品权限接口，不修改数据库结构。先部署服务端，再更新桌面客户端；旧客户端仍可使用原有创建、启停和重置接口。新界面位于 Electron 桌面应用，服务器不提供网页用户管理页面。
+
+隔离数据库验证脚本为 `scripts/user-management-integration.ts`，仅接受数据库名 `moye_users_verify_*`。使用 esbuild 打包（Node ESM、packages external）后，在应用依赖环境中运行；必须将 `DATABASE_URL` 指向新建的一次性数据库，验证结束后删除该库。脚本覆盖真实 PostgreSQL、改名后的 WebSocket 重连、停用与重置会话失效、成员权限升降与撤销，不读取现有账号凭据。

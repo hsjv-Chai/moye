@@ -26,6 +26,7 @@ import {
   structureSchema,
   atomicSchema,
   userInputSchema,
+  userPatchSchema,
   type User,
   type Room,
   type Peer,
@@ -313,15 +314,19 @@ export async function buildServer() {
   app.patch("/api/users/:id", async (req) => {
     const actor = await admin(req),
       id = bookId(req),
-      input = z
-        .object({
-          active: z.boolean().optional(),
-          password: z.string().min(12).max(200).optional(),
-        })
-        .parse(req.body);
+      input = userPatchSchema.parse(req.body);
     if (id === actor.id && input.active === false)
       fail(400, "不能停用自己的账号");
-    await transaction(async (db) => {
+    const updated = await transaction(async (db) => {
+      const target = (
+        await db.query("SELECT * FROM users WHERE id=$1 FOR UPDATE", [id])
+      ).rows[0];
+      if (!target) fail(404, "账号不存在");
+      if (input.displayName !== undefined)
+        await db.query("UPDATE users SET display_name=$1 WHERE id=$2", [
+          input.displayName,
+          id,
+        ]);
       if (input.active !== undefined)
         await db.query("UPDATE users SET active=$1 WHERE id=$2", [
           input.active,
@@ -332,11 +337,49 @@ export async function buildServer() {
           "UPDATE users SET password=$1,must_change=true WHERE id=$2",
           [passwordHash(input.password), id],
         );
-      await db.query("DELETE FROM sessions WHERE user_id=$1", [id]);
+      if (input.password || input.active === false)
+        await db.query("DELETE FROM sessions WHERE user_id=$1", [id]);
       await audit(db, actor, "update-user");
+      return publicUser(
+        (await db.query("SELECT * FROM users WHERE id=$1", [id])).rows[0],
+      );
     });
-    disconnectUser(id);
+    if (input.password || input.active === false) disconnectUser(id);
+    else if (input.displayName !== undefined) {
+      const rooms = new Set<string>();
+      for (const c of clients)
+        if (c.user.id === id) {
+          c.user = updated;
+          c.peer.name = updated.displayName;
+          rooms.add(c.bookId);
+          // Refresh trusted awareness names on reconnect without revoking access.
+          c.socket.close(1012, "profile updated");
+        }
+      for (const roomId of rooms) peers(roomId);
+    }
     return { ok: true };
+  });
+  app.get("/api/users/:id/books", async (req) => {
+    await admin(req);
+    const id = bookId(req);
+    const user = (await pool.query("SELECT * FROM users WHERE id=$1", [id]))
+      .rows[0];
+    if (!user) fail(404, "账号不存在");
+    const rows = (
+      await pool.query(
+        "SELECT b.*, m.role FROM books b LEFT JOIN members m ON m.book_id=b.id AND m.user_id=$1 ORDER BY b.updated_at DESC",
+        [id],
+      )
+    ).rows;
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.book.title,
+      archived: !!r.book.archived,
+      epoch: r.epoch,
+      revision: r.revision,
+      updatedAt: r.updated_at,
+      role: user.admin ? "admin" : r.role || null,
+    }));
   });
   app.get("/api/books", async (req) => {
     const user = await auth(req);
@@ -452,6 +495,30 @@ export async function buildServer() {
         .parse(req.body);
     await locked(id, () =>
       transaction(async (db) => {
+        if (
+          !(await db.query("SELECT id FROM books WHERE id=$1", [id])).rows
+            .length
+        )
+          fail(404, "作品不存在");
+        const target = (
+          await db.query("SELECT * FROM users WHERE id=$1 FOR UPDATE", [
+            memberId,
+          ])
+        ).rows[0];
+        if (!target) fail(404, "账号不存在");
+        if (target.admin) fail(400, "管理员可访问全部作品，无需单独授权");
+        const old = (
+          await db.query(
+            "SELECT role FROM members WHERE book_id=$1 AND user_id=$2",
+            [id, memberId],
+          )
+        ).rows[0]?.role;
+        if (
+          !target.active &&
+          input.role &&
+          !(old === input.role || (old === "editor" && input.role === "reader"))
+        )
+          fail(400, "停用账号不能新增或提升权限");
         if (input.role)
           await db.query(
             "INSERT INTO members VALUES($1,$2,$3) ON CONFLICT(book_id,user_id) DO UPDATE SET role=excluded.role",

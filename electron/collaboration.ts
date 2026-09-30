@@ -169,6 +169,23 @@ export class CollaborationClient {
     this.store.deleteKV("session");
     this.state(false);
   }
+  async updateUser(
+    id: string,
+    patch: { displayName?: string; active?: boolean; password?: string },
+  ) {
+    await this.request(`/api/users/${id}`, "PATCH", patch);
+    if (id === this.user?.id && patch.displayName !== undefined) {
+      this.user = { ...this.user, displayName: patch.displayName };
+      const secret = this.store.protect(this.token);
+      if (secret)
+        this.store.putKV("session", {
+          server: this.server,
+          user: this.user,
+          secret,
+        });
+      this.state(true);
+    }
+  }
   async changePassword(oldPassword: string, newPassword: string) {
     await this.request("/api/password", "POST", { oldPassword, newPassword });
     this.user = (await this.request("/api/me")).user;
@@ -351,6 +368,21 @@ export class CollaborationClient {
             pending: this.active.pending.length,
           });
         } else if (message.type === "peers") {
+          const me = message.peers.find(
+            (peer: { userId: string; name: string }) =>
+              peer.userId === this.user?.id,
+          );
+          if (this.user && me && this.user.displayName !== me.name) {
+            this.user = { ...this.user, displayName: me.name };
+            const secret = this.store.protect(this.token);
+            if (secret)
+              this.store.putKV("session", {
+                server: this.server,
+                user: this.user,
+                secret,
+              });
+            this.state(true);
+          }
           this.emit({ type: "peers", peers: message.peers });
         } else if (message.type === "denied") {
           this.ready = false;

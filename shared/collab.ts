@@ -67,10 +67,26 @@ export const loginSchema = z.object({
 });
 export const userInputSchema = z.object({
   username: z.string().regex(/^[a-zA-Z0-9_.-]{3,50}$/),
-  displayName: z.string().min(1).max(80),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, "请输入显示名称")
+    .max(80, "显示名称最多 80 字符"),
   password: z.string().min(12).max(200),
   admin: z.boolean().default(false),
 });
+export const userPatchSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(80).optional(),
+    active: z.boolean().optional(),
+    password: z.string().min(12).max(200).optional(),
+  })
+  .strict()
+  .refine(
+    (value) => Object.values(value).some((v) => v !== undefined),
+    "更新不能为空",
+  );
+export type UserBook = Omit<SharedBook, "role"> & { role: Role | null };
 export const structureSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("addChapter"),
@@ -160,10 +176,8 @@ export interface CollabAPI {
   deleteBook(id: string): Promise<void>;
   users(): Promise<User[]>;
   createUser(input: z.infer<typeof userInputSchema>): Promise<User>;
-  updateUser(
-    id: string,
-    patch: { active?: boolean; password?: string },
-  ): Promise<void>;
+  updateUser(id: string, patch: z.infer<typeof userPatchSchema>): Promise<void>;
+  userBooks(id: string): Promise<UserBook[]>;
   members(id: string): Promise<Member[]>;
   setMember(
     id: string,

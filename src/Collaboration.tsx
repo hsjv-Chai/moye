@@ -48,14 +48,13 @@ import {
   type Room,
   type Peer,
   type Structure,
-  type User,
   type SharedVersion,
-  type Member,
   type AtomicEdit,
 } from "../shared/collab";
 import SharedEditor, { toBase64, fromBase64 } from "./SharedEditor";
 import { Modal, Empty, date } from "./components";
 import Settings from "./Settings";
+import { UserManagement, MemberManagement } from "./UserManagement";
 import AIPanel from "./AIPanel";
 const api = () => window.moye.collab;
 const initialStatus: CollabStatus = {
@@ -109,13 +108,9 @@ export default function Collaboration({
       | null
     >(null),
     [settingsOpen, setSettingsOpen] = useState(false),
-    [users, setUsers] = useState<User[]>([]),
-    [members, setMembers] = useState<Member[]>([]),
     [versions, setVersions] = useState<SharedVersion[]>([]),
     [personal, setPersonal] = useState<Book[]>([]),
     [title, setTitle] = useState(""),
-    [displayName, setDisplayName] = useState(""),
-    [adminAccount, setAdminAccount] = useState(false),
     [imported, setImported] = useState<ImportChapter[]>([]),
     [exportIds, setExportIds] = useState<string[]>([]),
     [exportFormat, setExportFormat] = useState<"txt" | "md">("txt"),
@@ -320,8 +315,6 @@ export default function Collaboration({
     volume = book?.volumes.find((v) => v.id === target.id);
   const showMembers = async () => {
     if (!book) return;
-    setUsers(await api().users());
-    setMembers(await api().members(book.id));
     setModal("members");
   };
   const candidateMeta = () => {
@@ -526,7 +519,6 @@ export default function Collaboration({
                     <button
                       onClick={() =>
                         void safe(async () => {
-                          setUsers(await api().users());
                           setModal("users");
                         })
                       }
@@ -1554,157 +1546,19 @@ export default function Collaboration({
           </div>
         </Modal>
       )}
-      {modal === "users" && (
-        <Modal
-          title="管理员 · 账号管理"
-          wide
-          onClose={() => {
-            setModal(null);
-            setPassword("");
-          }}
-        >
-          <div className="modal-body">
-            <div className="form-grid">
-              <label>
-                新用户名
-                <input
-                  aria-label="新用户名"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </label>
-              <label>
-                显示名称
-                <input
-                  aria-label="显示名称"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </label>
-              <label>
-                临时密码（至少 12 位）
-                <input
-                  aria-label="新账号临时密码"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
-              <label>
-                账号类型
-                <select
-                  value={String(adminAccount)}
-                  onChange={(e) => setAdminAccount(e.target.value === "true")}
-                >
-                  <option value="false">普通成员</option>
-                  <option value="true">管理员</option>
-                </select>
-              </label>
-            </div>
-            <button
-              className="primary"
-              onClick={() =>
-                void safe(async () => {
-                  await api().createUser({
-                    username,
-                    displayName,
-                    password,
-                    admin: adminAccount,
-                  });
-                  setPassword("");
-                  setUsers(await api().users());
-                  setMessage("账号已创建，首次登录需修改密码");
-                })
-              }
-            >
-              创建账号
-            </button>
-            <div className="version-list">
-              {users.map((u) => (
-                <div key={u.id}>
-                  <span>
-                    <strong>
-                      {u.displayName} · {u.username}
-                    </strong>
-                    <small>
-                      {u.admin ? "管理员" : "成员"} ·{" "}
-                      {u.active ? "正常" : "已停用"}
-                    </small>
-                  </span>
-                  <button
-                    disabled={u.id === status.user?.id}
-                    onClick={() =>
-                      void safe(async () => {
-                        if (
-                          !(await confirm(
-                            `确认${u.active ? "停用" : "启用"} ${u.username}？`,
-                          ))
-                        )
-                          return;
-                        await api().updateUser(u.id, { active: !u.active });
-                        setUsers(await api().users());
-                      })
-                    }
-                  >
-                    {u.active ? "停用" : "启用"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      void safe(async () => {
-                        if (password.length < 12)
-                          throw new Error(
-                            "请先在上方临时密码框填写至少 12 位的新密码",
-                          );
-                        if (
-                          !(await confirm(
-                            `将 ${u.username} 的密码重置为上方填写的临时密码？`,
-                          ))
-                        )
-                          return;
-                        await api().updateUser(u.id, { password });
-                        setPassword("");
-                        setMessage("密码已重置，原会话已失效");
-                      })
-                    }
-                  >
-                    重置密码
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Modal>
+      {modal === "users" && status.user && (
+        <UserManagement
+          currentUser={status.user}
+          onClose={() => setModal(null)}
+          confirm={confirm}
+        />
       )}
       {modal === "members" && book && (
-        <Modal title="作品成员与权限" onClose={() => setModal(null)}>
-          <div className="modal-body">
-            <p className="muted">
-              管理员可访问所有作品。其他成员需在这里获得权限。
-            </p>
-            {users
-              .filter((u) => !u.admin)
-              .map((u) => (
-                <label key={u.id}>
-                  {u.displayName} · {u.username}
-                  <select
-                    aria-label={`权限-${u.username}`}
-                    value={members.find((m) => m.userId === u.id)?.role || ""}
-                    onChange={(e) => {
-                      const role = e.target.value as "editor" | "reader" | "";
-                      void safe(async () => {
-                        await api().setMember(book.id, u.id, role || null);
-                        setMembers(await api().members(book.id));
-                      });
-                    }}
-                  >
-                    <option value="">无权限</option>
-                    <option value="editor">可编辑</option>
-                    <option value="reader">只读</option>
-                  </select>
-                </label>
-              ))}
-          </div>
-        </Modal>
+        <MemberManagement
+          bookId={book.id}
+          onClose={() => setModal(null)}
+          confirm={confirm}
+        />
       )}
       {modal === "versions" && book && (
         <Modal title="共享版本记录" onClose={() => setModal(null)}>
